@@ -1,0 +1,142 @@
+package test.test;
+
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
+import com.sun.jna.win32.StdCallLibrary.StdCallCallback;
+
+public class testsa {
+
+	
+	public interface Clibrary extends Library {
+
+
+		byte AUDIOFORMAT_G729 = 0x01; // G729
+		byte AUDIOFORMAT_GSM = 0x02; // GSM
+		byte AUDIOFORMAT_G711A = 0x03; // G711-ALAW
+		byte AUDIOFORMAT_G711U = 0x04; // G711-ULAW
+		byte AUDIOFORMAT_PCM = 0x05; // PCM16 G729 GSM����
+
+		
+		int CALLSTATE_ACTIVE = 0; // ��Ƶ��Ϣ
+		int CALLSTATE_FREE = 1; // ¼�������Ϣ
+		int CALLSTATE_MISSED = 2; // �������ȥ��û�н�ͨ(����Ӧ�ò���ݷ����ж��Ƿ�������δ�ӻ���ȥ��δ��ͨ)
+		int CALLSTATE_RING = 3; // ����״̬
+		int CALLSTATE_TALK = 4; // ��ʼͨ��״̬
+		int CALLSTATE_NOCDRAUDIO = 5; // û��CDR����Ƶ���ݰ�
+
+		// ��Ƶ������
+		int CALLSTREAM_LOCAL = 0; // ������Ƶ
+		int CALLSTREAM_REMOTE = 1; // Զ����Ƶ
+		int CALLSTREAM_NONE = 0xff;// ¼�����
+
+		int AUDIOPORT_ONE = 1; // �ж�һ����Ƶ�˿�
+		int AUDIOPORT_TWO = 2; // �ж�������Ƶ�˿�
+
+		int BLOCK_GSMDATALEN = 33; // ����GSM SIPЭ�� GSM
+									// ÿ��33BYTE���������33BYTE �ײ㲻������
+									// ��ҪӦ�ò�ÿ�� 33BYTE���͹���ת�� GSMToPCM16
+		int BLOCK_G729DATALEN = 20; // ����G729 SIPЭ�� G729
+									// ÿ��20BYTE���������20BYTE �ײ㲻������
+									// ��ҪӦ�ò�ÿ�� 33BYTE���͹���ת�� G729ToPCM16
+
+		int DEBUGLOG_CLOSE = 0; // ������־�ر�
+		int DEBUGLOG_OPEN = 1; // ������־����
+
+		
+    
+    
+    
+    
+		Clibrary INSTANTCE = (Clibrary) Native.loadLibrary("TxVoipCall (11)",
+				Clibrary.class);
+
+		// char *CallID,char *CallFrom,char *CallTo,char *sourceip,char
+		// *desip,int CallState,int CallStream,BYTE *CallStreamAddr,int
+		// CallStreamLength,int AudioFormat
+		public interface CallBackName extends StdCallCallback {
+			void callCall(String CallID, String CallFrom, String CallTo,
+					String sourceip, String desip, short CallState,
+					short CallStream, Pointer CallStreamAddr,
+					short CallStreamLength, short AudioFormat);
+		}
+
+		Clibrary.CallBackName g_record_fn = new Clibrary.CallBackName() {
+
+			@Override
+			public void callCall(String CallID, String CallFrom, String CallTo,
+					String sourceip, String desip, short CallState,
+					short CallStream, Pointer CallStreamAddr,
+					short CallStreamLength, short AudioFormat) {
+					System.out.println("回调函数回调>>>>"+CallState);
+				switch (CallState) {
+					
+				case Clibrary.CALLSTATE_ACTIVE:
+					if (CallStream == CALLSTREAM_REMOTE) {
+						byte[] buffer = CallStreamAddr.getByteArray(0,
+								CallStreamLength);
+						
+
+						try {
+							AudioPlayer.getInstance().getQueue().put(buffer);
+							System.out.println(CallStreamLength);
+							System.out.println(Byte2Hex.Bytes2HexString(buffer));
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+
+				}
+
+				// TODO Auto-generated method stub
+
+			}
+
+		};
+
+		// �˷���Ϊ���ӿ��еķ���
+		boolean InitTxVoipCall(int NetWorkCard, int CheckPort,
+				CallBackName pCallBackProc);
+
+		boolean InitDecoder(int AutoConvert);
+
+		boolean FreeDecoder();
+
+		void TxDebugLog(int OpenLog);
+
+		void SetAudioPort(int CheckPort);
+
+		
+		 void  SetG729DecodeSize(int G729Size);	// 建议 200,500,1000  必须是10的倍数
+		 int   GetG729DecodeSize();
+		// G729 ת��ΪPCM16 gin729len �����20
+		boolean G729ToPCM16(Pointer gin729buff, int gin729len,
+				Pointer outpcmbuff, Pointer outpcmlength, int CallStream);
+
+		boolean G729ToPCM16Ex(Pointer gin729buff, int gin729len,
+				Pointer outpcmbuff, int CallStream);
+
+		// GSM ת��ΪPCM16 gingsmlen �����33
+		boolean GSMToPCM16(Pointer gingsmbuff, int gingsmlen,
+				Pointer poutpcmbuff, Pointer outpcmlength, int CallStream);
+
+		boolean GSMToPCM16Ex(Pointer gingsmbuff, int gingsmlen,
+				Pointer poutpcmbuff, int CallStream);
+
+		void GetDllVer(Pointer Ver);
+
+		boolean FreeTxVoipCall();
+		//
+
+	}
+
+	public static void main(String[] args) {
+		// ����
+		Clibrary.INSTANTCE.InitTxVoipCall(0, Clibrary.AUDIOPORT_TWO,
+				Clibrary.g_record_fn);
+		Clibrary.INSTANTCE.FreeTxVoipCall();
+		System.out.println(Pointer.SIZE);
+	}
+
+}
